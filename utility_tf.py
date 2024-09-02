@@ -143,24 +143,18 @@ def isw_score(R):
     isw_score = np.sum(weights * R) 
     return isw_score
 
-def compute_weight_mask(target):
-    """
-    Compute a weight mask based on the target values.
 
-    Thresholds: [0, 1, 5, 10, 20, 50]
-    Weights: [1., 2., 5., 10., 50.]
-    """
+@tf.function
+def compute_weight_mask(target):
     threshold = [0, 1, 5, 10, 20, 50]
     weights = [1., 2., 5., 10., 50.]
 
     threshol = conversion(conversion(conversion(np.array(threshold), "Z_R", inverse=True), "DBZ_Z", inverse=True), "DN_DBZ", inverse=True)
     threshol = threshol / 160
 
-    # Convert numpy arrays to TensorFlow tensors
     threshol = tf.convert_to_tensor(threshol, dtype=tf.float32)
     mask = tf.ones_like(target, dtype=tf.float32)
 
-    # Apply weights based on thresholds
     for k in range(len(weights)):
         mask = tf.where(
             (threshol[k] <= target) & (target < threshol[k + 1]), 
@@ -170,39 +164,62 @@ def compute_weight_mask(target):
 
     return mask
 
+@tf.function
 def Bmse_loss(output, target):
-    """
-    Compute the weighted Mean Squared Error (MSE) loss.
-    """
     weight_mask = compute_weight_mask(target)
     squared_diff = tf.square(output - target)
     weighted_squared_diff = tf.multiply(weight_mask, squared_diff)
     loss = tf.reduce_sum(weighted_squared_diff)
     return loss
 
+@tf.function
 def Bmae_loss(output, target):
-    """
-    Compute the weighted Mean Absolute Error (MAE) loss.
-    """
     weight_mask = compute_weight_mask(target)
     absolute_diff = tf.abs(output - target)
     weighted_absolute_diff = tf.multiply(weight_mask, absolute_diff)
     loss = tf.reduce_sum(weighted_absolute_diff)
     return loss
 
+@tf.function
 def CB_loss(output, target):
-    """
-    Compute a combined loss (CB_loss) that combines weighted MSE and weighted MAE.
-    """
     bmse = Bmse_loss(output, target)
     bmae = Bmae_loss(output, target)
     combined_loss = (bmse + 0.1 * bmae) / 2.0
 
-    # Optionally, print the loss for debugging
     tf.print("== CB_loss: ", combined_loss)
 
     return combined_loss
 
+@tf.function
+def MCS_loss(y_pred, y_true):
+    threshold = [0.1, 1, 2, 4, 6, 8, 10]
+    weight = [20, 10, 5, 4, 3, 2, 1]  
+    
+    threshol = conversion(conversion(conversion(np.array(threshold), "Z_R", inverse=True), "DBZ_Z", inverse=True), "DN_DBZ", inverse=True)
+    threshol = threshol / 160
+    
+    threshol = tf.convert_to_tensor(threshol, dtype=tf.float32)
+    weight = tf.convert_to_tensor(weight, dtype=tf.float32)
+
+    nthval = len(threshol)
+    
+    csi = tf.constant(0.0)
+    far = tf.constant(0.0)
+    for i in tf.range(nthval):
+        score_obj = Score(threshol[i], y_true, y_pred)
+        csi += score_obj.csi(weight[i])
+        far += score_obj.far(weight[i])
+
+    alpha = 0.00005
+    bmse_bmae = CB_loss(y_true, y_pred)  
+    mcs_loss = (bmse_bmae + alpha * (csi + far)) / 3.0
+
+    tf.print("== csi: ", alpha * csi)
+    tf.print("== far: ", alpha * far)
+    tf.print("== bmse_bmae: ", bmse_bmae)
+    tf.print("== mcs ", mcs_loss)
+    
+    return mcs_loss
 class Score:
     def __init__(self, thval, y_true, y_pred):
         self.thval = thval
@@ -219,38 +236,10 @@ class Score:
         self.XO = tf.reduce_sum(tf.where((self.y_pred < self.thval) & (self.y_true >= self.thval), 1.0, 0.0))
         self.XX = tf.reduce_sum(tf.where((self.y_pred < self.thval) & (self.y_true < self.thval), 1.0, 0.0))
 
+    @tf.function
     def csi(self, weight):
         return weight * (1 - self.FO / (self.FO + self.FX + self.XO))
 
+    @tf.function
     def far(self, weight):
         return weight * (self.FX / (self.FO + self.FX))
-
-def MCS_loss(y_pred, y_true):
-    threshold = [0.1, 1, 2, 4, 6, 8, 10]
-    weight = [20, 10, 5, 4, 3, 2, 1]  
-    
-    threshol = conversion(conversion(conversion(np.array(threshold), "Z_R", inverse=True), "DBZ_Z", inverse=True), "DN_DBZ", inverse=True)
-    threshol = threshol / 160
-    
-    # Convert numpy arrays to TensorFlow tensors
-    threshol = tf.convert_to_tensor(threshol, dtype=tf.float32)
-    weight = tf.convert_to_tensor(weight, dtype=tf.float32)
-
-    nthval = len(threshol)
-    
-    csi = 0.0
-    far = 0.0
-    for i in range(nthval):
-        csi += Score(threshol[i], y_true, y_pred).csi(weight[i])
-        far += Score(threshol[i], y_true, y_pred).far(weight[i])
-
-    alpha = 0.00005
-    bmse_bmae = CB_loss(y_true, y_pred)  
-    mcs_loss = (bmse_bmae + alpha * (csi + far)) / 3.0
-
-    tf.print("== csi: ", alpha * csi)
-    tf.print("== far: ", alpha * far)
-    tf.print("== bmse_bmae: ", bmse_bmae)
-    tf.print("== mcs ", mcs_loss)
-    
-    return mcs_loss
