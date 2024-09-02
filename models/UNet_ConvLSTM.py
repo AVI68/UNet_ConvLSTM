@@ -15,8 +15,6 @@ from tensorflow.keras.layers import (Activation, BatchNormalization, Conv3D,
 
 from tensorflow.keras.layers import Layer
 
-
-
 class ConvLSTMRecurrentLayer(Layer):
     def __init__(self, num_filters_base, seq_len, **kwargs):
         super(ConvLSTMRecurrentLayer, self).__init__(**kwargs)
@@ -41,8 +39,9 @@ class ConvLSTMRecurrentLayer(Layer):
         
         # Loop over the timesteps
         for step in range(self.seq_len):
-            output_fl, state_h, state_c = self.convlstm_layer(input_tensor + tensor, initial_state=[state_h, state_c])
-            out_fl.append(tf.squeeze(output_fl, axis=1))
+            output_fl, state_h, state_c = self.convlstm_layer(input_tensor + tensor[:, step:step+1, :, :, :], 
+                                                              initial_state=[state_h, state_c])
+            out_fl.append(output_fl)  # No need to squeeze if the dimension isn't 1
             input_tensor = output_fl
         
         # Convert the list of outputs to a tensor and reshape it
@@ -50,6 +49,7 @@ class ConvLSTMRecurrentLayer(Layer):
         out_fl = tf.reshape(out_fl, (batch_size, self.seq_len, height, width, self.num_filters_base))
         
         return out_fl
+
 
 def unet_convlstm_reg(input_shape: Tuple[int] = (16, 256, 256, 1),
                       num_filters_base: int = 16,
