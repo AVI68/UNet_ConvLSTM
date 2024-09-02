@@ -83,6 +83,36 @@ def conversion(image, operation="DN_DBZ", inverse=False):
             raise ValueError("Invalid operation")
     return result
 
+# def normalize(image, inverse=False):
+#     min_val = 0
+#     max_val = 160
+
+#     if not inverse:
+#         # Clip the image values to ensure they stay within 0-160
+#         mapped_image = np.clip(image, min_val, max_val)
+#         mapped_image = mapped_image.astype(np.float32)  # Convert to float for further processing
+
+#         # Apply a median filter to reduce granular noise
+#         filtered_image = cv2.medianBlur(mapped_image, ksize=3)
+
+#         # Resize the filtered image to 256x256 using INTER_AREA interpolation (good for downscaling)
+#         resized_image = cv2.resize(filtered_image, (256, 256), interpolation=cv2.INTER_AREA)
+
+#         # Normalize the resized image to the 0-1 range based on the 0-160 scale
+#         standardized_image = resized_image / max_val
+
+#         return standardized_image
+
+#     else:
+#         # Reverse the normalization: scale back to the 0-160 range
+#         mapped_image = image * max_val
+#         mapped_image = np.clip(mapped_image, min_val, max_val)  # Clip values to stay within the 0-160 range
+#         mapped_image = mapped_image.astype(np.uint8)  # Convert to uint8 for image operations
+
+#         # Resize back to 256x256 
+#         resized_image = cv2.resize(mapped_image, (256, 256), interpolation=cv2.INTER_AREA)
+
+#         return resized_image
 def normalize(image, inverse=False):
     min_val = 0
     max_val = 160
@@ -92,11 +122,8 @@ def normalize(image, inverse=False):
         mapped_image = np.clip(image, min_val, max_val)
         mapped_image = mapped_image.astype(np.float32)  # Convert to float for further processing
 
-        # Apply a median filter to reduce granular noise
-        filtered_image = cv2.medianBlur(mapped_image, ksize=3)
-
         # Resize the filtered image to 256x256 using INTER_AREA interpolation (good for downscaling)
-        resized_image = cv2.resize(filtered_image, (256, 256), interpolation=cv2.INTER_AREA)
+        resized_image = cv2.resize(mapped_image, (64, 64), interpolation=cv2.INTER_AREA)
 
         # Normalize the resized image to the 0-1 range based on the 0-160 scale
         standardized_image = resized_image / max_val
@@ -110,10 +137,9 @@ def normalize(image, inverse=False):
         mapped_image = mapped_image.astype(np.uint8)  # Convert to uint8 for image operations
 
         # Resize back to 256x256 
-        resized_image = cv2.resize(mapped_image, (256, 256), interpolation=cv2.INTER_AREA)
+        resized_image = cv2.resize(mapped_image, (64, 64), interpolation=cv2.INTER_AREA)
 
         return resized_image
-
 
 def fname2dt(value, inverse=False):
     """
@@ -206,7 +232,45 @@ def compute_weight_mask(target):
 
     return mask
 
+def mse_loss(output, target):
+    """
+    Compute the  Mean Squared Error (MSE) loss.
 
+    Parameters:
+    - output: The predicted output tensor from the model.
+    - target: The ground truth tensor.
+
+    Returns:
+    - loss: The MSE loss as a single scalar tensor.
+    """
+    
+    # Compute the squared difference between the output and target
+    squared_diff = (output - target) ** 2
+
+    # Sum up all the weighted squared differences to get the final loss
+    loss = torch.sum(squared_diff)
+
+    return loss
+
+def mae_loss(output, target):
+    """
+    Compute the  Mean absolute Error (MAE) loss.
+
+    Parameters:
+    - output: The predicted output tensor from the model.
+    - target: The ground truth tensor.
+
+    Returns:
+    - loss: The MAE loss as a single scalar tensor.
+    """
+    
+    # Compute the absolute difference between the output and target
+    absolute_diff = torch.abs(output - target)
+
+    # Sum up all the weighted absolute differences to get the final loss
+    loss = torch.sum(absolute_diff)
+
+    return loss
 def Bmse_loss(output, target):
     """
     Compute the weighted Mean Squared Error (MSE) loss.
