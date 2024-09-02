@@ -9,7 +9,7 @@ Created on Sat Aug 31 16:54:55 2024
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from modules import Conv,ConvTranspose
+from models.modules import Conv,ConvTranspose
 
 class cnn_2D(nn.Module):
 
