@@ -9,7 +9,7 @@ Created on Sat Aug 31 16:52:58 2024
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from moodels.modules import Conv, TrajGRU_cell, ConvTranspose
+from models.modules import Conv, TrajGRU_cell, ConvTranspose
 
 class TrajGRU(nn.Module):
 

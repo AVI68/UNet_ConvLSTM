@@ -5,7 +5,6 @@ Created on Mon Sep  2 01:30:48 2024
 
 @author: avijitmajhi
 """
-
 import tensorflow as tf
 import os
 import numpy as np
@@ -16,16 +15,14 @@ from tensorflow.keras.optimizers import Adam
 from models.UNet_ConvLSTM import unet_convlstm_reg
 import gc  # Garbage collector
 
-# Paths for Google Colab
-data_dir = "/content/radar_data_unica_2018_2023_sorted"  # Path to the unzipped dataset in Colab
-excel_file = "/content/UNet_ConvLSTM/image_isw_scores.xlsx"
-output_dir = "/content/drive/MyDrive/UNet_ConvLSTM" 
-log_dir = os.path.join(output_dir, 'logs')
+# Paths
+data_dir = "C:/Users/Utente/radar_data_unica_2018_2023_sorted"
+excel_file = "C:/Users/Utente/UNet_ConvLSTM/image_isw_scores.xlsx"
+output_dir = "C:/Users/Utente/UNet_ConvLSTM/"
 checkpoint_dir = os.path.join(output_dir, 'checkpoints')
 
 # Create necessary directories
 os.makedirs(output_dir, exist_ok=True)
-os.makedirs(log_dir, exist_ok=True)
 os.makedirs(checkpoint_dir, exist_ok=True)
 
 # Load the data
@@ -61,7 +58,7 @@ class RadarDatasetTF:
         
         return x, y
 
-    def to_tf_dataset(self, batch_size=32, shuffle=True):
+    def to_tf_dataset(self, batch_size=2, shuffle=True):
         dataset = tf.data.Dataset.from_tensor_slices(np.arange(len(self)))
         if shuffle:
             dataset = dataset.shuffle(buffer_size=len(self))
@@ -82,7 +79,7 @@ train_dataset = RadarDatasetTF(train_times, data_dir)
 valid_dataset = RadarDatasetTF(valid_times, data_dir)
 test_dataset = RadarDatasetTF(test_times, data_dir)
 
-BATCH_SIZE = 32
+BATCH_SIZE =2
 train_loader = train_dataset.to_tf_dataset(batch_size=BATCH_SIZE)
 valid_loader = valid_dataset.to_tf_dataset(batch_size=BATCH_SIZE)
 test_loader = test_dataset.to_tf_dataset(batch_size=BATCH_SIZE)
@@ -148,6 +145,35 @@ def train_model(loss_function_name):
     tf.keras.backend.clear_session()
     gc.collect()
 
-# Train with MCS_loss and CB_loss
-train_model('MCS_loss')
-train_model('CB_loss')
+if __name__ == '__main__':
+    # Prompt the user to choose the loss function
+    print("Choose the loss function to train the model:")
+    print("1: MCS_loss")
+    print("2: CB_loss")
+    print("3: Bmae_loss")
+    print("4: Bmse_loss")
+    print("5: mse_loss")
+    loss_choice = input("Enter the number corresponding to the loss function: ")
+
+    if loss_choice == '1':
+        loss_function_name = 'MCS_loss'
+    elif loss_choice == '2':
+        loss_function_name = 'CB_loss'
+    elif loss_choice == '3':
+        loss_function_name = 'Bmae_loss'
+    elif loss_choice == '4':
+        loss_function_name = 'Bmse_loss'
+    elif loss_choice == '5':
+        loss_function_name = 'mse_loss'
+    else:
+        raise ValueError("Invalid choice! Please run the script again and choose a valid option.")
+
+    # Define the log directory based on user choice
+    log_dir = f"C:/Users/Utente/UNet_ConvLSTM/run/network_unet_convlstm_epochs_4_batch_size_{BATCH_SIZE}_IL_16_OL_15_loss_{loss_function_name}"
+
+    # Create necessary directories
+    os.makedirs(log_dir, exist_ok=True)
+
+    # Train the model with the chosen loss function
+    train_model(loss_function_name)
+

@@ -10,7 +10,6 @@ from models.naive_cnn import cnn_2D
 from models.traj_gru import TrajGRU
 from models.conv_gru import ConvGRU
 import torch
-import argparse
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
@@ -50,20 +49,16 @@ class RadarDataset(Dataset):
                 images[i + (self.input_steps - 1), :, :] = image  # Adjust index for correct placement
                 
         if self.recurrent_nn:
-            # For recurrent models, we add an extra dimension for the channel (which is 1 for rain maps)
             x = images[:self.input_steps, :, :].reshape(self.input_steps, 1, 256, 256)
             y = images[self.input_steps:, :, :].reshape(self.output_steps, 1, 256, 256)
         else:
-            # For non-recurrent models, the input is typically a sequence of images without an additional channel dimension
             x = images[:self.input_steps, :, :]
             y = images[self.input_steps:, :, :]
         
-        # Convert numpy arrays to PyTorch tensors
         x = torch.tensor(x, dtype=torch.float32)
         y = torch.tensor(y, dtype=torch.float32)
         
         return x, y
-
 
 def train_network(network, train_loader, valid_loader, loss_type, epochs, batch_size, device, log_dir, print_metric_logs=False):
 
@@ -135,68 +130,81 @@ def train_network(network, train_loader, valid_loader, loss_type, epochs, batch_
         torch.save(network, log_dir + f'/model_{epoch+1}.pth')
 
 if __name__ == '__main__':
+    # Set your parameters directly
+    epochs = 4
+    batch_size = 2
+    input_length = 16
+    output_length = 15
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f'Using device {device}')
+    # Prompt the user to choose network and loss function
+    print("Choose the network to train:")
+    print("1: ConvGRU")
+    print("2: TrajGRU")
+    print("3: CNN2D")
+    print("4: UNet")
+    network_choice = input("Enter the number corresponding to the network: ")
+
+    if network_choice == '1':
+        network_name = 'ConvGRU'
+        recurrent_nn = True
+        network = ConvGRU(device=device, input_length=input_length, output_length=output_length)
+    elif network_choice == '2':
+        network_name = 'TrajGRU'
+        recurrent_nn = True
+        network = TrajGRU(device=device, input_length=input_length, output_length=output_length)
+    elif network_choice == '3':
+        network_name = 'CNN2D'
+        recurrent_nn = False
+        network = cnn_2D(device=device,input_length=input_length, output_length=output_length, filter_number=64)
+    elif network_choice == '4':
+        network_name = 'UNet'
+        recurrent_nn = False
+        network = UNet(device=device,input_length=input_length, output_length=output_length, filter_number=64)
+    else:
+        raise ValueError("Invalid choice! Please run the script again and choose a valid option.")
+
+    print("Choose the loss function:")
+    print("1: CB_loss")
+    print("2: MCS_loss")
+    loss_choice = input("Enter the number corresponding to the loss function: ")
+
+    if loss_choice == '1':
+        loss_type = 'CB_loss'
+    elif loss_choice == '2':
+        loss_type = 'MCS_loss'
+    else:
+        raise ValueError("Invalid choice! Please run the script again and choose a valid option.")
+    
     # Load the data
-    excel_file = "/content/UNet_ConvLSTM/image_isw_scores.xlsx"
+    excel_file = "C:/Users/Utente/UNet_ConvLSTM/image_isw_scores.xlsx"
     df = pd.read_excel(excel_file)
-    # Assuming the first column contains the datetime
     times = pd.to_datetime(df.iloc[:, 0])
 
     # Filter data for training years: 2018, 2020, 2021, 2022, and 2023
     train_times = times[times.dt.year.isin([2018, 2020, 2021, 2022, 2023])]
-
-    # Filter data for validation: January to September 2019
     valid_times = times[(times.dt.year == 2019) & (times.dt.month <= 9)]
-
-    # Filter data for testing: October to December 2019
     test_times = times[(times.dt.year == 2019) & (times.dt.month >= 10)]
     
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', default=4, type=int, help="The number of epochs used to train the network")
-    parser.add_argument('--batch_size', default=8, type=int)
-    parser.add_argument('--input_length', type=int, default=16, help="The number of time steps of a sequence as input of the NN")
-    parser.add_argument('--output_length', type=int, default=15, help="The number of time steps predicted by the NN")
-    parser.add_argument('--print_metric_logs', action='store_true', help='If we want to print the metrics score while training')
-    parser.add_argument('--network', choices=['TrajGRU', 'ConvGRU', 'CNN2D', 'UNet'])
-    parser.add_argument('--loss_type', choices=['CB_loss', 'MCS_loss'], required=True)
-    args = parser.parse_args()
     
-    # Log directory
-    log_dir = f"/content/drive/MyDrive/run/network_{args.network}_epochs_{args.epochs}_batch_size_{args.batch_size}_IL_{args.input_length}_OL_{args.output_length}"
-
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f'Using device {device}')
-
-    if args.network == 'ConvGRU':
-        recurrent_nn = True
-        network = ConvGRU(device=device, input_length=args.input_length, output_length=args.output_length)
-    elif args.network == 'TrajGRU':
-        recurrent_nn = True
-        network = TrajGRU(device=device, input_length=args.input_length, output_length=args.output_length)
-    elif args.network == 'CNN2D':
-        recurrent_nn = False
-        network = cnn_2D(input_length=args.input_length, output_length=args.output_length, filter_number=64)
-    elif args.network == 'UNet':
-        recurrent_nn = False
-        network = UNet(input_length=args.input_length, output_length=args.output_length, filter_number=64)
-       
     network.to(device=device)
+
+    log_dir = f"C:/Users/Utente/UNet_ConvLSTM/run/network_{network_name}_epochs_{epochs}_batch_size_{batch_size}_IL_{input_length}_OL_{output_length}_loss_{loss_type}"
     
-    # Adjusted base directory to point to the unzipped folder
-    data_dir = "/content/radar_data_unica_2018_2023_sorted" 
+    data_dir = "C:/Users/Utente/radar_data_unica_2018_2023_sorted"
 
-    train_dataset = RadarDataset(train_times, data_dir, input_steps=args.input_length, output_steps=args.output_length, recurrent_nn=recurrent_nn)
-    valid_dataset = RadarDataset(valid_times, data_dir, input_steps=args.input_length, output_steps=args.output_length, recurrent_nn=recurrent_nn)
-    test_dataset = RadarDataset(test_times, data_dir, input_steps=args.input_length, output_steps=args.output_length, recurrent_nn=recurrent_nn)
+    train_dataset = RadarDataset(train_times, data_dir, input_steps=input_length, output_steps=output_length, recurrent_nn=recurrent_nn)
+    valid_dataset = RadarDataset(valid_times, data_dir, input_steps=input_length, output_steps=output_length, recurrent_nn=recurrent_nn)
+    test_dataset = RadarDataset(test_times, data_dir, input_steps=input_length, output_steps=output_length, recurrent_nn=recurrent_nn)
 
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-    valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     train_network(network, train_loader, valid_loader,
-                  args.loss_type,
-                  epochs=args.epochs,
-                  batch_size=args.batch_size,
+                  loss_type,
+                  epochs=epochs,
+                  batch_size=batch_size,
                   device=device,
                   log_dir=log_dir,
-                  print_metric_logs=args.print_metric_logs)
-
+                  print_metric_logs=False)
