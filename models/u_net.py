@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+.#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Sat Aug 31 16:52:58 2024
@@ -9,7 +9,7 @@ Created on Sat Aug 31 16:52:58 2024
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from modules import Conv, Down_Block, Up_Block
+from models.modules import Conv, Down_Block, Up_Block
 
 class UNet(nn.Module):
 
