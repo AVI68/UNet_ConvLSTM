@@ -329,12 +329,13 @@ def MCS_loss(y_pred,y_true):
 
     alpha = 0.00005
     bmse_bmae = CB_loss(y_true, y_pred)  
-    
+    mcs_loss = (bmse_bmae + alpha * (csi + far)) / 3.0
     print("== csi: ", alpha * csi.item())
     print("== far: ", alpha * far.item())
     print("== bmse_bmae: ", bmse_bmae.item())
+    print("== mcs ", mcs_loss.item())
     
-    return (bmse_bmae + alpha * (csi + far)) / 3.0
+    return mcs_loss
 
 
 

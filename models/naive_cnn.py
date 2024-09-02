@@ -9,12 +9,13 @@ Created on Sat Aug 31 16:54:55 2024
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from models.modules import Conv,ConvTranspose
+from modules import Conv,ConvTranspose
 
 class cnn_2D(nn.Module):
 
-    def __init__(self, input_length, output_length, filter_number):
+    def __init__(self, device, input_length, output_length, filter_number):
         super(cnn_2D, self).__init__()
+        self.device = device
 
         self.enc1 = Conv(in_channels=input_length, out_channels=filter_number, kernel_size=(4, 4), stride=2, padding=1, bn=True)
         self.enc2 = Conv(in_channels=filter_number, out_channels=filter_number, kernel_size=(4, 4), stride=2, padding=1, bn=True)

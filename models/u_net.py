@@ -9,12 +9,15 @@ Created on Sat Aug 31 16:52:58 2024
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from models.modules import Conv, Down_Block, Up_Block
+from modules import Conv, Down_Block, Up_Block
 
 class UNet(nn.Module):
 
-    def __init__(self, input_length, output_length, filter_number=64):
+    def __init__(self, device,input_length, output_length, filter_number=64):
         super(UNet, self).__init__()
+        
+        self.device = device
+        
 
         self.conv_1_1 = Conv(input_length, filter_number, bn=True)
         self.conv_1_2 = Conv(filter_number, filter_number, bn=True)

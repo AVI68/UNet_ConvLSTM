@@ -5,14 +5,10 @@ Created on Sat Aug 31 14:05:27 2024
 
 @author: avijitmajhi
 """
-
-
-
 from models.u_net import UNet
 from models.naive_cnn import cnn_2D
 from models.traj_gru import TrajGRU
 from models.conv_gru import ConvGRU
-from models.UnetConvLSTM import UnetConvLSTM
 import torch
 import argparse
 from torch import nn
@@ -139,16 +135,8 @@ def train_network(network, train_loader, valid_loader, loss_type, epochs, batch_
         torch.save(network, log_dir + f'/model_{epoch+1}.pth')
 
 if __name__ == '__main__':
-    # Get the current working directory
-    current_dir = os.path.abspath(os.getcwd())
-
-    # Define directories based on the current working directory
-    data_dir = os.path.join(current_dir, "radar_data_unica_2018_2023")
-    excel_file = os.path.join(current_dir, "image_isw_scores.xlsx")
-    
-    torch.cuda.empty_cache()
-
     # Load the data
+    excel_file = "/content/UNet_ConvLSTM/image_isw_scores.xlsx"
     df = pd.read_excel(excel_file)
     # Assuming the first column contains the datetime
     times = pd.to_datetime(df.iloc[:, 0])
@@ -168,17 +156,13 @@ if __name__ == '__main__':
     parser.add_argument('--input_length', type=int, default=16, help="The number of time steps of a sequence as input of the NN")
     parser.add_argument('--output_length', type=int, default=15, help="The number of time steps predicted by the NN")
     parser.add_argument('--print_metric_logs', action='store_true', help='If we want to print the metrics score while training')
-    parser.add_argument('--network', choices=['TrajGRU', 'ConvGRU', 'CNN2D', 'UNet','UNet_ConvLSTM'])
+    parser.add_argument('--network', choices=['TrajGRU', 'ConvGRU', 'CNN2D', 'UNet'])
     parser.add_argument('--loss_type', choices=['CB_loss', 'MCS_loss'], required=True)
     args = parser.parse_args()
     
-    # Construct log_dir inside output_dir
-    log_dir = os.path.join(current_dir, 'run', f'network_{args.network}_epochs_{args.epochs}_batch_size_{args.batch_size}_IL_{args.input_length}_OL_{args.output_length}')
+    # Log directory
+    log_dir = f"/content/drive/MyDrive/run/network_{args.network}_epochs_{args.epochs}_batch_size_{args.batch_size}_IL_{args.input_length}_OL_{args.output_length}"
 
-    # Check if the log_dir already exists
-    if os.path.isdir(log_dir):
-        raise Exception(f"Path {log_dir} already exists")
-    
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device {device}')
 
@@ -194,12 +178,12 @@ if __name__ == '__main__':
     elif args.network == 'UNet':
         recurrent_nn = False
         network = UNet(input_length=args.input_length, output_length=args.output_length, filter_number=64)
-    elif args.network == 'UNet_ConvLSTM':
-        recurrent_nn = False
-        network = UnetConvLSTM(input_shape=(16, 1, 256, 256), num_filters_base=16, dropout_rate=0.2, seq_len=15)
        
     network.to(device=device)
     
+    # Adjusted base directory to point to the unzipped folder
+    data_dir = "/content/radar_data_unica_2018_2023_sorted" 
+
     train_dataset = RadarDataset(train_times, data_dir, input_steps=args.input_length, output_steps=args.output_length, recurrent_nn=recurrent_nn)
     valid_dataset = RadarDataset(valid_times, data_dir, input_steps=args.input_length, output_steps=args.output_length, recurrent_nn=recurrent_nn)
     test_dataset = RadarDataset(test_times, data_dir, input_steps=args.input_length, output_steps=args.output_length, recurrent_nn=recurrent_nn)
@@ -215,3 +199,4 @@ if __name__ == '__main__':
                   device=device,
                   log_dir=log_dir,
                   print_metric_logs=args.print_metric_logs)
+
